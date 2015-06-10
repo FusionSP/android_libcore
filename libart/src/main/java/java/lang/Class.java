@@ -456,10 +456,10 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
      * @hide
      */
     public String getDexCacheString(Dex dex, int dexStringIndex) {
-        String s = dexCache.getResolvedString(dexStringIndex);
+        String s = dexCacheStrings[dexStringIndex];
         if (s == null) {
             s = dex.strings().get(dexStringIndex).intern();
-            dexCache.setResolvedString(dexStringIndex, s);
+            dexCacheStrings[dexStringIndex] = s;
         }
         return s;
     }
@@ -471,12 +471,13 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
      * @hide
      */
     public Class<?> getDexCacheType(Dex dex, int dexTypeIndex) {
-        Class<?> resolvedType = dexCache.getResolvedType(dexTypeIndex);
+        Class<?>[] dexCacheResolvedTypes = dexCache.resolvedTypes;
+        Class<?> resolvedType = dexCacheResolvedTypes[dexTypeIndex];
         if (resolvedType == null) {
             int descriptorIndex = dex.typeIds().get(dexTypeIndex);
             String descriptor = getDexCacheString(dex, descriptorIndex);
             resolvedType = InternalNames.getClass(getClassLoader(), descriptor);
-            dexCache.setResolvedType(dexTypeIndex, resolvedType);
+            dexCacheResolvedTypes[dexTypeIndex] = resolvedType;
         }
         return resolvedType;
     }
@@ -705,12 +706,11 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
         ArtMethod artMethodResult = null;
         if (virtualMethods != null) {
             for (ArtMethod m : virtualMethods) {
-                ArtMethod nonProxyMethod = Class.findOverriddenMethodIfProxy(m);
-                String methodName = ArtMethod.getMethodName(nonProxyMethod);
+                String methodName = ArtMethod.getMethodName(m);
                 if (!name.equals(methodName)) {
                     continue;
                 }
-                if (!ArtMethod.equalMethodParameters(nonProxyMethod, args)) {
+                if (!ArtMethod.equalMethodParameters(m, args)) {
                     continue;
                 }
                 int modifiers = m.getAccessFlags();
@@ -730,12 +730,11 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
                     if (Modifier.isConstructor(modifiers)) {
                         continue;
                     }
-                    ArtMethod nonProxyMethod = Class.findOverriddenMethodIfProxy(m);
-                    String methodName = ArtMethod.getMethodName(nonProxyMethod);
+                    String methodName = ArtMethod.getMethodName(m);
                     if (!name.equals(methodName)) {
                         continue;
                     }
-                    if (!ArtMethod.equalMethodParameters(nonProxyMethod, args)) {
+                    if (!ArtMethod.equalMethodParameters(m, args)) {
                         continue;
                     }
                     if ((modifiers & skipModifiers) == 0) {
@@ -752,14 +751,6 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
         }
         return new Method(artMethodResult);
     }
-
-    /**
-     * Returns the overridden method if the {@code method} is a proxy method,
-     * otherwise returns the {@code method}.
-     *
-     * @hide
-     */
-    public static native ArtMethod findOverriddenMethodIfProxy(ArtMethod method);
 
     /**
      * Returns an array containing {@code Method} objects for all methods
